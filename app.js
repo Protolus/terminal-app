@@ -194,7 +194,19 @@ CLApp.prototype.defaultPluginDir = function(cb){
     return path.join(os.homedir(), '.'+this.name, 'node_modules');
 }
 
+CLApp.prototype.plugin = function(type, name){
+    return lastPlugs[type] && lastPlugs[type].find(function(plug){
+        return plug.name === name;
+    }).data;
+}
+
+//as long as used statically, this reference is safe
+var lastTypes;
+var lastPlugs;
+var lastFlatPlugs;
+
 CLApp.prototype.plugins = function(types, cb){
+    lastTypes = types;
     this.hasPluginsEnabled = true;
     Object.keys(types).forEach(function(typeName){
         if(types[typeName].prefix && !types[typeName].detect){
@@ -224,10 +236,16 @@ CLApp.prototype.plugins = function(types, cb){
                         resultObs[typeName] = result[typeName].map(function(item){
                             var pth = path.join(ob.defaultPluginDir(), item, 'package.json');
                             var name = item.split('-').pop();
-                            return new CLAppPlugin(name, require(pth));
+                            var pkg = require(pth);
+                            if(pkg.main){
+                                var mainPath = path.join(ob.defaultPluginDir(), item, pkg.main);
+                                pkg = require(mainPath)
+                            }
+                            return new CLAppPlugin(name, pkg);
                         })
                     }
                 });
+                lastPlugs = resultObs;
                 cb(null, result, resultObs);
             }else{
                 var filtered = list.filter(function(item){
@@ -239,11 +257,12 @@ CLApp.prototype.plugins = function(types, cb){
                         );
                     }, false);
                 });
-                cb(null, filtered, filtered.map(function(item){
+                lastFlatPlugs = filtered.map(function(item){
                     var pth = path.join(ob.defaultPluginDir(), item, 'package.json');
                     var name = item.split('-').pop();
                     return new CLAppPlugin(name, require(pth));
-                }));
+                })
+                cb(null, filtered, lastFlatPlugs);
             }
         })
     };

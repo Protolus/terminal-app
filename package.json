@@ -1,9 +1,8 @@
 {
     "name": "app-term-kit",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "main": "app.js",
     "dependencies": {
-        "ansi-gif": "^0.3.0",
         "ascii-art": "^2.8.0",
         "async": "^3.2.0",
         "comment-json": "^4.1.0",
