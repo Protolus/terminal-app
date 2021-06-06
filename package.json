@@ -1,7 +1,7 @@
 {
     "name": "app-term-kit",
-    "version": "0.0.1",
-    "main":"app.js",
+    "version": "0.0.2",
+    "main": "app.js",
     "dependencies": {
         "ansi-gif": "^0.3.0",
         "ascii-art": "^2.8.0",

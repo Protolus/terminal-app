@@ -3,10 +3,13 @@ var fs = require('fs');
 var os = require('os');
 var path = require('path');
 var rc = require('rc');
-var art = require('ascii-art');
-//var npm = require('npm');
+var ansi = require('ascii-art-ansi');
 var mkdirp = require('mkdirp');
 var CJSON = require('comment-json');
+
+var styleStr = function(str, style){
+    return ansi.codes(str, style, true);
+}
 
 var styles = {
     actionColor : 'blue',
@@ -14,6 +17,23 @@ var styles = {
     flagColor : 'cyan',
     sigColor : 'magenta'
 }
+
+var CLAppPlugin = function(name, opts){
+    this.name = name;
+    this.data = opts || {};
+}
+
+CLAppPlugin.prototype.configureCLApp = function(app){
+    app.argument({
+        name : this.name,
+        type : 'boolean',
+        description: 'use the '+this.name+' personality'
+    });
+};
+
+CLAppPlugin.prototype.isEnabled = function(argv){
+    return !!argv[this.name];
+};
 
 var CLApp = function(appName, opts){
     this.options = opts || {};
@@ -48,12 +68,30 @@ CLApp.prototype.help = function(){
     yargs.help(chr).alias(chr, 'help');
 }
 
-CLApp.prototype.run = function(){
-    argv = yargs.argv;
-    var action = argv._.shift();
-    var target = argv._.shift();
-    if(!this.commands[action]) throw new Error('unrecognized action!');
-    this.commands[action](argv, target);
+var argv;
+
+CLApp.prototype.argv = function(){
+    return argv || (argv = yargs.argv);
+}
+
+CLApp.prototype.run = function(cb){
+    var args = this.argv();
+    var action = args._.shift();
+    var target = args._.shift();
+    if(!this.commands[action]){
+        var err = new Error('unrecognized action: '+ action);
+        if(!cb) throw err;
+        else cb(err);
+    }else{
+        try{
+            this.commands[action](args, target, function(){
+                if(cb) cb();
+            });
+        }catch(ex){
+            cb(ex);
+        }
+    }
+    return args;
 }
 
 CLApp.prototype.footer = function(footerText){
@@ -89,19 +127,19 @@ CLApp.prototype.argument = function(name, type, description, num, choices, force
     if(choices){
         //yargs.choices(chr, choices).skipValidation(chr);
         var chunked = chunkLines(choices.map(function(name){
-            return art.style(
+            return styleStr(
                 ' '+name+' ',
                 'white_bg+black+encircled',
                 true
             );
         }), ', ', 44, 55, true, {
-            preindent: art.style('Choices: ', 'yellow+bold', true)
+            preindent: styleStr('Choices: ', 'yellow+bold', true)
         });
         post = "\n\n"+chunked+"\n";
         //console.log('|'+chunked+'|')
         /*
         post = "\n"+'[ '+choices.map(function(name){
-            return art.style(name, 'grey_bg+white+bold', true);
+            return styleStr(name, 'grey_bg+white+bold', true);
         }).join(', ')+' ]';
         //*/
     }
@@ -115,15 +153,15 @@ CLApp.prototype.command = function(name, description, examples, action){
         examples:(examples || [])
     }
     this.commands[options.name] = options.action;
-    var coloredName = art.style(options.name, styles.actionColor, true);
+    var coloredName = styleStr(options.name, styles.actionColor, true);
     var rgx = new RegExp(' '+options.name+' ', 'g');
     var styleThings = function(str){
         return str
             .replace( rgx, ' '+coloredName+' ' )
             .replace( /(".*?")/g, function(i, match){
-                return art.style(match, styles.stringColor, true);
+                return styleStr(match, styles.stringColor, true);
             }).replace( /(-.(?: |$))/g, function(i, match){
-                return art.style(match, styles.flagColor, true);
+                return styleStr(match, styles.flagColor, true);
             })
     };
     yargs.command(coloredName, options.description);
@@ -158,23 +196,93 @@ CLApp.prototype.defaultPluginDir = function(cb){
 
 CLApp.prototype.plugins = function(types, cb){
     this.hasPluginsEnabled = true;
+    Object.keys(types).forEach(function(typeName){
+        if(types[typeName].prefix && !types[typeName].detect){
+            var prefix = types[typeName].prefix;
+            types[typeName].detect = function(s){
+                return s.indexOf(prefix) === 0
+            };
+        }
+    });
+    var getPlugins = function(arg1, cb){ //loadPluginsByType or 1type
+        var callback = (typeof arg1 === 'function' && !cb)?arg1:cb;
+        var type = (typeof arg1 === 'function' && !cb)?'*':arg1;
+        if(typeNames.indexOf(type) === -1 && type !== '*'){
+            return callback(new Error('type not recognized:'+type));
+        }
+        fs.readdir(ob.defaultPluginDir(), function(err, list){
+            if(arg1 === '*'){
+                var result = {};
+                var resultObs = {};
+                typeNames.forEach(function(typeName){
+                    if(types[typeName] && types[typeName].detect){
+                        result[typeName] = list.filter(function(item){
+                            return types[typeName].detect(item);
+                        });
+                        var pth;
+
+                        resultObs[typeName] = result[typeName].map(function(item){
+                            var pth = path.join(ob.defaultPluginDir(), item, 'package.json');
+                            var name = item.split('-').pop();
+                            return new CLAppPlugin(name, require(pth));
+                        })
+                    }
+                });
+                cb(null, result, resultObs);
+            }else{
+                var filtered = list.filter(function(item){
+                    return typeNames.reduce(function(value, typeName){
+                        return value || (
+                            (type === '*' || type === typeName) &&
+                            types[type] &&
+                            types[type].detect(item)
+                        );
+                    }, false);
+                });
+                cb(null, filtered, filtered.map(function(item){
+                    var pth = path.join(ob.defaultPluginDir(), item, 'package.json');
+                    var name = item.split('-').pop();
+                    return new CLAppPlugin(name, require(pth));
+                }));
+            }
+        })
+    };
     this.command({
         name : 'install',
         description: 'install a particular plugin, by type',
         examples: [],
-        action : function(argv, target){
-            // format is: max install <type> <target>
-            // where type = personality/plugin/engine
-            console.log('INST', arguments);
+        action : function(argv, type){
+            // format is: <bin> install <type> <name>
+            var plugin = argv._.pop();
+            if(!plugin) throw new Error('Plugins require a type and a name');
+            getPlugins('*', function(err, plugins){
+                if(!plugins[type]){
+                    throw new Error('Unknown plugin type: '+type);
+                }
+                var stripped = plugins[type].map(function(str){
+                    return str.split('-').pop();
+                });
+                argv._.unshift(plugin);
+                var plugs = argv._;
+                plugs.forEach(function(plug){
+                    if(stripped.indexOf(plug) !== -1){
+                        throw new Error('This plugin is already installed: '+plug);
+                    }
+                });
+                var modules = plugs.map(function(plug){
+                    return (types[type].prefix || '') + plug;
+                });
+                installInDir(modules, ob.modulePath, function(err, data){
+                    console.log('INSTALLED!:'+type, modules);
+                });
+            });
         }
     });
     this.modulePath = this.defaultPluginDir();
     var typeNames = Object.keys(types);
     var ob = this;
     var done = function(){
-        cb(null, ob.config(), function(type){ //loadPluginsByType or 1type
-
-        })
+        return cb(null, ob.config(), getPlugins);
     }
     if(!this.hasConfigDirEnabled) this.configDir(done);
     else done();
@@ -203,18 +311,24 @@ var ensureConfig = function(path, cb){
 }
 
 var installInDir = function(modules, dir, cb){
-    npm.load(function(err) {
-      // handle errors
+    var startDir = process.cwd();
+    process.chdir(dir);
+    var wrappedCb = function(err, res){
+        process.chdir(startDir);
+        cb(err, res);
+    }
+    var npm = require('npm');
+    npm.load(function(err){
+        if(err) return wrappedCb(err);
+        npm.commands.install(modules, function(er, data) {
+            if(er) return wrappedCb(er);
+            wrappedCb(null, data);
+        });
 
-      // install module ffi
-      npm.commands.install(modules, function(er, data) {
-        // log errors or data
-      });
-
-      npm.on('log', function(message) {
-        // log installation progress
-        console.log(message);
-      });
+        npm.on('log', function(message) {
+          // log installation progress
+          console.log(message);
+        });
     });
 }
 
