@@ -3,12 +3,31 @@ var fs = require('fs');
 var os = require('os');
 var path = require('path');
 var rc = require('rc');
-var ansi = require('ascii-art-ansi');
+var Ansi = require('ascii-art-ansi');
 var mkdirp = require('mkdirp');
 var CJSON = require('comment-json');
 
+var readCommentJSONSync = function(file, defaultConfig){
+    var config;
+    try{
+        config = CJSON.parse(fs.readFileSync(file).toString());
+        config[k] = v;
+    }catch(ex){
+        config = CJSON.parse(defaultConfig);
+    }
+    return config;
+}
+
+var writeCommentJSONSync = function(file, config){
+    return fs.writeFileSync(file, CJSON.stringify(config, null, 2));
+}
+
+var writeCommentJSON = function(file, config, cb){
+    fs.writeFile(file, CJSON.stringify(config, null, 2), cb);
+}
+
 var styleStr = function(str, style){
-    return ansi.codes(str, style, true);
+    return Ansi.codes(str, style, true);
 }
 
 var styles = {
@@ -75,23 +94,27 @@ CLApp.prototype.argv = function(){
 }
 
 CLApp.prototype.run = function(cb){
-    var args = this.argv();
-    var action = args._.shift();
-    var target = args._.shift();
-    if(!this.commands[action]){
-        var err = new Error('unrecognized action: '+ action);
-        if(!cb) throw err;
-        else cb(err);
-    }else{
-        try{
-            this.commands[action](args, target, function(){
-                if(cb) cb();
-            });
-        }catch(ex){
-            cb(ex);
+    try{
+        var args = this.argv();
+        var action = args._.shift();
+        var target = args._.shift();
+        if(!this.commands[action]){
+            var err = new Error('unrecognized action: '+ action);
+            if(!cb) throw err;
+            else cb(err);
+        }else{
+            try{
+                this.commands[action](args, target, function(){
+                    if(cb) cb();
+                });
+            }catch(ex){
+                cb(ex);
+            }
         }
+        return args;
+    }catch(ex){
+        cb(ex);
     }
-    return args;
 }
 
 CLApp.prototype.footer = function(footerText){
@@ -116,7 +139,11 @@ CLApp.prototype.argument = function(name, type, description, num, choices, force
         choices:choices,
         forceChar:forceChar
     }
-    var chr = forceChar || getCharFor(options.name);
+    var chr = options.forceChar || getCharFor(options.name);
+    if(options.forceChar){
+        fwd[chr] = options.name;
+        rvs[options.name] = chr;
+    }
     if(!yargs[options.type]) throw new Error('Unsupported type: '+options.type);
     if(options.type !== 'string'){
         yargs[options.type](chr);
@@ -124,9 +151,9 @@ CLApp.prototype.argument = function(name, type, description, num, choices, force
     yargs.alias(chr, options.name);
     yargs.nargs(chr, options.num || (options.type === 'boolean'?0:1))
     var post = '';
-    if(choices){
+    if(options.choices){
         //yargs.choices(chr, choices).skipValidation(chr);
-        var chunked = chunkLines(choices.map(function(name){
+        var chunked = chunkLines(options.choices.map(function(name){
             return styleStr(
                 ' '+name+' ',
                 'white_bg+black+encircled',
@@ -179,19 +206,86 @@ CLApp.prototype.configDir = function(cb){
     cb();
 }
 
-CLApp.prototype.config = function(cb){
+CLApp.prototype.config = function(cb, autoInit){
+    var file = path.join(this.rootDir(), 'config');
     if(this.hasConfigDirEnabled){
-        return this.computedConfig || (
-            this.computedConfig = rc(this.name, this.options.config)
+
+        var result = this.computedConfig || (
+            (this.computedConfig = rc(this.name, {}))// &&
+            //(this.computedConfig = rc(this.name, this.options.config))
         );
+        var commentCompatible;
+        try{
+            commentCompatible = readCommentJSONSync(file, this.options.defaults);
+        }catch(ex){
+            console.log(ex);
+            commentCompatible = {};
+        }
+        CJSON.assign(commentCompatible, this.rawConfig);
+        setTimeout(function(){
+            if(cb) cb(null, commentCompatible, function(config, callb){
+                writeCommentJSON(file, config, function(){
+                    if(callb) callb();
+                });
+            });
+        },0);
+        return result;
     }else{
+        if(autoInit){
+            var ob = this;
+            return this.configDir(function(){
+                try{
+                    ob.config(cb);
+                }catch(ex){
+                    console.log(ex);
+                }
+            }) || this.options.config;
+        }
         return this.options.config;
     }
-    this.hasConfigDirEnabled = true;
 }
 
 CLApp.prototype.defaultPluginDir = function(cb){
-    return path.join(os.homedir(), '.'+this.name, 'node_modules');
+    return path.join(this.rootDir(), 'node_modules');
+}
+
+CLApp.prototype.rootDir = function(cb){
+    return path.join(os.homedir(), '.'+this.name);
+}
+
+var subvalue = (obj, path, val) => {
+    var keys = path.split('.');
+    var lastKey = keys.pop();
+    var lastObj = keys.reduce((obj, key) =>
+        obj[key] = obj[key] || {},
+        obj);
+    return lastObj[lastKey] = val;
+};
+
+CLApp.prototype.useable = function(str, callback){
+    var verb = typeof str === 'function'?'use':str;
+    var cb = typeof str === 'function'?str:callback;
+    var ob = this;
+    this.config(function(err, config, save){
+        ob[verb] = function(changes, cb){
+            Object.keys(changes).forEach(function(key){
+                subvalue(config, key, changes[key]);
+            });
+            save(config, cb);
+        };
+        cb(err, config, save);
+    }, true);
+    this.command({
+        name : verb,
+        description: 'set the local configuration of a value',
+        examples: [],
+        action : function(argv, key){
+            var value = argv._.shift();
+            var changes = {};
+            changes[key] = value;
+            ob[verb](changes, function(){ });
+        }
+    });
 }
 
 CLApp.prototype.plugin = function(type, name){
@@ -292,7 +386,7 @@ CLApp.prototype.plugins = function(types, cb){
                     return (types[type].prefix || '') + plug;
                 });
                 installInDir(modules, ob.modulePath, function(err, data){
-                    console.log('INSTALLED!:'+type, modules);
+                    console.log('INSTALLED:'+type, modules);
                 });
             });
         }
@@ -358,29 +452,25 @@ var rvs = {};
 var getCharFor = function(cmd, preferCaps){
     var chars = cmd.split('');
     var chr;
+    var inverse;
     for(var lcv=0; lcv < chars.length; lcv++){
         chr = chars[lcv];
         if(preferCaps){
             chr = chr.toUpperCase();
-            if(!fwd[chr]){
-                fwd[chr] = cmd;
-                rvs[cmd] = chr;
-                return chr;
-            }
+            inverse = chr.toLowerCase();
+        }else{
+            chr = chr.toLowerCase();
+            inverse = chr.toUpperCase();
         }
-        chr = chr.toLowerCase();
         if(!fwd[chr]){
             fwd[chr] = cmd;
             rvs[cmd] = chr;
             return chr;
         }
-        if(!preferCaps){
-            chr = chr.toUpperCase();
-            if(!fwd[chr]){
-                fwd[chr] = cmd;
-                rvs[cmd] = chr;
-                return chr;
-            }
+        if(!fwd[inverse]){
+            fwd[inverse] = cmd;
+            rvs[cmd] = inverse;
+            return inverse;
         }
     }
 }

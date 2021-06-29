@@ -1,9 +1,9 @@
 {
     "name": "app-term-kit",
-    "version": "0.0.3",
+    "version": "0.1.0",
     "main": "app.js",
     "dependencies": {
-        "ascii-art": "^2.8.0",
+        "ascii-art-ansi": "^1.4.1",
         "async": "^3.2.0",
         "comment-json": "^4.1.0",
         "mkdirp": "^1.0.4",
