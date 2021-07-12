@@ -1,7 +1,20 @@
 app-term-kit
 ============
 
-Unifying a bunch of things I do in various CL apps mainly so I can throw some code away. You might find it useful, but probably moreso after I'm motivated to write docs for it.
+This gives you a few features for your app:
+
+- action centric structure (`<app-name> <action> <other stuff>`)
+- automatic handling of commented JSON config files and setting values therein
+- automatic handling of optional `~/.<app-name>` directories (and easy init)
+- automatic handling of classes of plugins installed in `~/.<app-name>`
+    - simple require shim for plugin loading
+    - automated installation and (eventually) maintenance
+- handle ansi configuration of [`yargs`]() and adding some features/simplifications
+    - handle flag collisions
+    - (eventually) formatting widths to terminal width
+- rights notifications & licensing information
+- (eventually) [man pages](https://gist.github.com/dominikwilkowski/cba6c8c6b1ded8d3e3cc6bf0b7ddc432)
+- (eventually) test harness (use common tests/data between CLI and Classes)
 
 Installation
 ------------
@@ -28,11 +41,11 @@ var app = new CLApp('app-name', {
 ```
 
 ```js
-app.command();
+app.command({});
 ```
 
 ```js
-app.argument();
+app.argument({});
 ```
 
 ```js
@@ -40,26 +53,29 @@ app.help();
 ```
 
 ```js
-app.header();
+app.header({});
 ```
 
 ```js
-app.footer();
+app.footer({});
 ```
 
 ```js
-app.plugins();
+app.plugins({}, cb);
 ```
 
 ```js
-app.useable();
+app.useable(cb);
 ```
 
 ```js
-app.config();
+app.config(cb);
 ```
 
 ```js
-app.run();
+app.run(cb);
 ```
+
+Roadmap
+-------
 [More to come]

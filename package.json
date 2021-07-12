@@ -1,6 +1,6 @@
 {
     "name": "app-term-kit",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "main": "app.js",
     "dependencies": {
         "ascii-art-ansi": "^1.4.1",
@@ -9,7 +9,6 @@
         "mkdirp": "^1.0.4",
         "npm": "^7.15.1",
         "rc": "^1.2.8",
-        "rss-parser": "^3.12.0",
         "yargs": "^17.0.1"
     }
 }
