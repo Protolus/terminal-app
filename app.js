@@ -30,11 +30,14 @@ var requireWithFailToDir = function(dir, rqr){
             }catch(ex2){
                 console.log(
                     'FAILED ATTEMPTED SIDELOAD',
-                    pth,
+                    pth
+                    /*
+                    ,
                     fs.statSync(pth).isDirectory(),
                     fs.statSync(path.join(pth, 'package.json')),
                     ex,
                     ex2
+                    */
                 )
                 throw ex; //if we didn't pick it up, report the normal failure
             }
@@ -132,6 +135,7 @@ CLApp.prototype.header = function(headerText){
         header = headerText;
     }else{
         if(this.hasPluginsEnabled){
+            //todo: handle output of failed loads/etc.
             header += 'Plugins:'+"\n"+'    '+(sourceList.length?sourceList.join(', '):'N/A')+"\n\n";
         }
     }
