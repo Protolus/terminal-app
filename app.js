@@ -2,6 +2,7 @@ var yargs = require('yargs');
 var fs = require('fs');
 var os = require('os');
 var path = require('path');
+var Emitter = require('extended-emitter');
 var rc = require('rc');
 var Ansi = require('ascii-art-ansi');
 var mkdirp = require('mkdirp');
@@ -22,10 +23,19 @@ var requireWithFailToDir = function(dir, rqr){
         try{
             res = rqr(name);
         }catch(ex){
+            var pth = path.join(dir, name);
             try{
-                res = rqr(path.join(dir, name));
+                //res = rqr(pth);
+                res = require(pth);
             }catch(ex2){
-                console.log('FAILED ATTEMPTED SIDELOAD', dir, name)
+                console.log(
+                    'FAILED ATTEMPTED SIDELOAD',
+                    pth,
+                    fs.statSync(pth).isDirectory(),
+                    fs.statSync(path.join(pth, 'package.json')),
+                    ex,
+                    ex2
+                )
                 throw ex; //if we didn't pick it up, report the normal failure
             }
         }
@@ -113,6 +123,7 @@ var CLApp = function(appName, opts){
     if(!this.options.defaults) this.options.defaults = '//file created by '+"\n"+'{}';
     if(!this.options.config) this.options.config = {};
     this.commands = {};
+    (new Emitter()).onto(this);
 }
 
 CLApp.prototype.header = function(headerText){
@@ -252,7 +263,7 @@ CLApp.prototype.command = function(name, description, examples, action){
             })
     };
     yargs.command(coloredName, options.description);
-    options.examples.forEach(function(example){
+    if(options.examples) options.examples.forEach(function(example){
         if(Array.isArray(example)){
             yargs.example(styleThings(example[0]), styleThings(example[1]));
         }else{
@@ -460,6 +471,7 @@ CLApp.prototype.plugins = function(types, cb){
                     if(err) return cb(err);
                     installInDir(modules, ob.modulePath, function(err, data){
                         if(err) return cb(err);
+                        ob.emit('plugins-installed', modules);
                         console.log('INSTALLED:'+type, modules);
                     });
                 });

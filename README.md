@@ -40,41 +40,73 @@ var app = new CLApp('app-name', {
 });
 ```
 
+### .command(<options>)
+Define a command, with it's runtime logic
+
 ```js
 app.command({});
 ```
+
+### .argument(<options>)
+Define a flag or argument to be passed to one or more commands
 
 ```js
 app.argument({});
 ```
 
+### .help()
+Enable help function via `--help` or `-h`
+
 ```js
 app.help();
 ```
+
+### .header(<options>)
+The prefix to all the documentation
 
 ```js
 app.header({});
 ```
 
+### .footer(<options>)
+The suffix to all the documentation
+
 ```js
 app.footer({});
 ```
+
+### .plugins(<options>, <callback>)
+Enable and load sets of plugins
 
 ```js
 app.plugins({}, cb);
 ```
 
+### .useable(<options>, <callback>)
+allow the user to interactively alter the config file
+
 ```js
 app.useable(cb);
 ```
+
+### .config(<callback>)
+Get the app's current configuration
 
 ```js
 app.config(cb);
 ```
 
+### .run(<callback>)
+Execute based on the existing configuration.
 ```js
 app.run(cb);
 ```
+
+## Events
+
+using `.on()`, `.off()`, `.emit()` and `.once()` the user can interact with events that are generated from the object.
+
+    - `plugins-installed` : one or more plugins has been installed.
 
 Roadmap
 -------
