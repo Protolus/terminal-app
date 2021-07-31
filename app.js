@@ -29,7 +29,7 @@ var requireWithFailToDir = function(dir, rqr){
                 res = require(pth);
             }catch(ex2){
                 console.log(
-                    'FAILED ATTEMPTED SIDELOAD',
+                    'FAILED ATTEMPTED SIDELOAD!',
                     pth
                     /*
                     ,
@@ -491,7 +491,9 @@ CLApp.prototype.plugins = function(types, cb){
         //var aaDir = path.dirname(pluginDir);
         //var linkTarget = ob.options.fslink || process.cwd();
         //var link = ensureSymlinkExistsIfConfigDirDoes(aaDir, linkTarget);
-        var rp = path.relative(process.cwd(), pluginDir);
+        //var t = process.cwd();
+        var t = __dirname;
+        var rp = path.relative(t, pluginDir);
         var rqr = requireWithFailToDir(rp, require.main.require)
         return cb(null, ob.config(), getPlugins, function(name){
             return rqr(name);
