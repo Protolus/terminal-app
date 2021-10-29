@@ -281,7 +281,7 @@ CLApp.prototype.configDir = function(cb){
     cb();
 }
 
-CLApp.prototype.config = function(cb, autoInit){
+CLApp.prototype.config = function(cb, autoInit, autoCreate){
     var file = path.join(this.rootDir(), 'config');
     if(this.hasConfigDirEnabled){
 
@@ -313,11 +313,21 @@ CLApp.prototype.config = function(cb, autoInit){
         if(autoInit){
             var ob = this;
             return this.configDir(function(){
-                try{
-                    ob.config(cb);
-                }catch(ex){
-                    console.log(ex);
-                }
+                var doConfig = function(err){
+                  try{
+                      ob.config(cb);
+                  }catch(ex){
+                      console.log('CONFIG ERROR: ', ex);
+                  }
+                };
+                if(true || autoCreate){
+                  ensureConfig(ob.rootDir(), function(err){
+                    writeCommentJSON(file, (ob.options.defaults || {}), function(){
+                        doConfig();
+                    });
+                  });
+
+                }else doConfig();
             }) || this.options.config;
         }
         return this.options.config;
