@@ -12,9 +12,10 @@ This gives you a few features for your app:
 - handle ansi configuration of [`yargs`]() and adding some features/simplifications
     - handle flag collisions
     - (eventually) formatting widths to terminal width
+    - (eventually) handle other libraries
 - rights notifications & licensing information
 - (eventually) [man pages](https://gist.github.com/dominikwilkowski/cba6c8c6b1ded8d3e3cc6bf0b7ddc432)
-- (eventually) test harness (use common tests/data between CLI and Classes)
+- test harness (use common tests/data between CLI and Classes)
 
 Installation
 ------------

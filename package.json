@@ -1,6 +1,6 @@
 {
     "name": "app-term-kit",
-    "version": "0.3.1",
+    "version": "0.4.0",
     "author": "Abbey Hawk Sparrow <@khrome> (http://patternweaver.com)",
     "description": "Utility for creating command line applications",
     "main": "app.js",
@@ -13,5 +13,9 @@
         "npm": "^7.15.1",
         "rc": "^1.2.8",
         "yargs": "^17.0.1"
+    },
+    "devDependencies": {
+        "chai": "^4.3.6",
+        "mocha": "^9.2.0"
     }
 }
