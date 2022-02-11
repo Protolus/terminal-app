@@ -1,9 +1,10 @@
 const fs = require('fs');
 const os = require('os');
+const stream = require('stream');
 const path = require('path');
 const exec = require('child_process').exec;
-const makeTempFile = (body, cb)=>{
-    let name = path.join(os.tmpdir(), Math.floor(Math.random()*1000000)+'.temp');
+const makeTempFile = (body, cb, type)=>{
+    let name = path.join(os.tmpdir(), Math.floor(Math.random()*1000000)+'.'+(type?type:'temp'));
     fs.writeFile(name, body, (err)=>{
         cb(err, (!err) && name, (callback)=>{
             fs.unlink(name, callback);
@@ -19,12 +20,38 @@ const tool = {
               cb(error?error:null, stdout);
         });
     },
-    executeActionUsingFileFromBody : (bin, action, definition, callback)=>{
+    executeActionUsingFileFromBody : (bin, action, definition, fileType, callback)=>{
+        if(
+            definition !== null &&
+            typeof definition === 'object' &&
+            typeof definition.pipe === 'function'
+        ){
+            //stream.pause();
+            const chunks = [];
+            definition.on("row", function (data) {
+                chunks.push(data);
+            });
+            definition.on("done", function (){
+                let body = chunks.join('');
+                tool.executeActionUsingFileFromBody(
+                    bin,
+                    action,
+                    body,
+                    fileType,
+                    callback
+                );
+            });
+            //definition.pipe(strm);
+            //definition.resume();
+            return;
+        }
         makeTempFile(definition, (err, filename, deleteFile)=>{
             if(err) return callback(err);
             let command = bin+' '+action+' '+filename;
             tool.clExecute(command, (exerr, output)=>{
                 if(exerr) return callback(exerr);
+                return callback(null, JSON.parse(output));
+                /*
                 deleteFile((delErr)=>{
                     if(delErr) return callback(delErr);
                     try{
@@ -32,9 +59,10 @@ const tool = {
                     }catch(parseErr){
                         return callback(parseErr);
                     }
-                })
+                });
+                //*/
             });
-        });
+        }, fileType);
     },
     hasArgument : (arg, str)=>{
         if(!str) return false;
