@@ -50,8 +50,8 @@ const tool = {
             let command = bin+' '+action+' '+filename;
             tool.clExecute(command, (exerr, output)=>{
                 if(exerr) return callback(exerr);
-                return callback(null, JSON.parse(output));
-                /*
+                //return callback(null, JSON.parse(output));
+                //*
                 deleteFile((delErr)=>{
                     if(delErr) return callback(delErr);
                     try{
