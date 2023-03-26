@@ -1,9 +1,11 @@
 var CJSON = require('comment-json');
 var mkdirp = require('mkdirp');
-var Ansi = require('ascii-art-ansi');
+var { Ansi, Color } = require('@ansi-art/tools');
 var fs = require('fs');
 var os = require('os');
 var path = require('path');
+
+const ansi = new Ansi(new Color('4bit'));
 
 var ensureDir = function(path, cb){
     fs.stat(path, function(err, stat){
@@ -101,8 +103,8 @@ var chunkLines = function(chunks, delimiter, length, flushTo, process, opts){
     var lines = [];
     var line = '';
     chunks.forEach(function(chunk){
-        var lineLen = Ansi.length(line);
-        var chunkLen = Ansi.length(chunk);
+        var lineLen = ansi.length(line);
+        var chunkLen = ansi.length(chunk);
         if( (lineLen + chunkLen + delimiter.length) > length){
             lines.push(line);
             line = '';
@@ -113,7 +115,7 @@ var chunkLines = function(chunks, delimiter, length, flushTo, process, opts){
     lines.push(line);
     if(flushTo){
         lines.forEach(function(line, index){
-            var lineLen = Ansi.length(lines[index]);
+            var lineLen = ansi.length(lines[index]);
             var diff = flushTo - lineLen;
             if(process === true){
                 diff = flushTo - length;
@@ -121,10 +123,10 @@ var chunkLines = function(chunks, delimiter, length, flushTo, process, opts){
             if(diff > 0){
                 lines[index] = padStart(lines[index], diff, "⠀");
                 if(options.preindent && index === 0){
-                    var preindentOffset = diff - Ansi.length(options.preindent)-1;
-                    lines[0] = Ansi.substring(lines[0], 0, preindentOffset)+
+                    var preindentOffset = diff - ansi.length(options.preindent)-1;
+                    lines[0] = ansi.substring(lines[0], 0, preindentOffset)+
                         options.preindent+
-                        Ansi.substring(lines[0], diff)
+                        ansi.substring(lines[0], diff)
 
                 }
             }
@@ -211,7 +213,7 @@ var writeCommentJSON = function(file, config, cb){
 }
 
 var styleStr = function(str, style){
-    return Ansi.codes(str, style, true);
+    return ansi.codes(str, style, true);
 }
 
 var subvalue = (obj, path, val) => {
